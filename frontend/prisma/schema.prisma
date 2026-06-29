@@ -1,0 +1,107 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  OWNER
+  STAFF
+}
+
+enum Language {
+  ID
+  EN
+}
+
+enum AssetCategory {
+  PROPERTY
+  VEHICLE
+  ELECTRONIC
+  LUXURY_GOODS
+}
+
+enum TaskStatus {
+  ASSIGNED
+  IN_PROGRESS
+  WAITING_APPROVAL
+  COMPLETED
+  REJECTED
+}
+
+enum PlanType {
+  BASIC
+  SULTAN
+}
+
+model Tenant {
+  id              String         @id @default(uuid())
+  companyName     String
+  isActive        Boolean        @default(true)
+  users           User[]
+  assets          Asset[]
+  maintenanceTasks MaintenanceTask[]
+  subscription    Subscription?
+}
+
+model User {
+  id                String    @id @default(uuid())
+  tenantId          String
+  role              Role
+  fullName          String
+  phoneNumber       String
+  ownerId           String?
+  preferredLanguage Language  @default(ID)
+
+  tenant            Tenant    @relation(fields: [tenantId], references: [id])
+  owner             User?     @relation("StaffOwner", fields: [ownerId], references: [id])
+  staffMembers      User[]    @relation("StaffOwner")
+  assets            Asset[]
+  maintenanceTasks  MaintenanceTask[]
+}
+
+model Asset {
+  id                    String          @id @default(uuid())
+  tenantId              String
+  ownerId               String
+  assetName             String
+  category              AssetCategory
+  purchaseDate          DateTime
+  purchasePrice         Decimal         @db.Decimal(15, 2)
+  warrantyEndDate       DateTime?
+  totalMaintenanceCost  Decimal         @default(0.00) @db.Decimal(15, 2)
+  taxationDeadline      DateTime?
+
+  tenant                Tenant          @relation(fields: [tenantId], references: [id])
+  owner                 User            @relation(fields: [ownerId], references: [id])
+  maintenanceTasks      MaintenanceTask[]
+}
+
+model MaintenanceTask {
+  id              String      @id @default(uuid())
+  tenantId        String
+  assetId         String
+  staffId         String
+  status          TaskStatus  @default(ASSIGNED)
+  taskDescription String      @db.Text
+  dueDate         DateTime
+  submittedCost   Decimal     @default(0.00) @db.Decimal(15, 2)
+  proofImageUrl   String?
+  vendorName      String?
+
+  tenant          Tenant      @relation(fields: [tenantId], references: [id])
+  asset           Asset       @relation(fields: [assetId], references: [id])
+  staff           User        @relation(fields: [staffId], references: [id])
+}
+
+model Subscription {
+  id        String    @id @default(uuid())
+  tenantId  String    @unique
+  planType  PlanType  @default(BASIC)
+  isActive  Boolean   @default(true)
+
+  tenant    Tenant    @relation(fields: [tenantId], references: [id])
+}

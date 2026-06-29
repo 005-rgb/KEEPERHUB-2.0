@@ -1,0 +1,52 @@
+Buatkan proyek baru menggunakan Next.js (App Router), Tailwind CSS, dan PostgreSQL dengan Prisma ORM. Terapkan arsitektur Multi-Tenant berbasis "Shared Database, Shared Schema" menggunakan kolom `tenant_id` di setiap model database untuk kebutuhan deployment di cPanel Shared Hosting.
+
+Susun file `schema.prisma` secara kaku sesuai aturan mutlak berikut:
+
+1. Model Tenant:
+- id: String @id @default(uuid())
+- companyName: String
+- isActive: Boolean @default(true)
+
+2. Model User (RBAC, i18n, & Tenant-Bound):
+- id: String @id @default(uuid())
+- tenantId: String
+- role: Role (Enum: OWNER, STAFF)
+- fullName: String
+- phoneNumber: String // Format E.164
+- ownerId: String? // Mengarah ke id User itu sendiri jika role adalah STAFF
+- preferredLanguage: Language @default(ID) (Enum: ID, EN)
+
+3. Model Asset (Menu 1 & 3):
+- id: String @id @default(uuid())
+- tenantId: String
+- ownerId: String
+- assetName: String
+- category: AssetCategory (Enum: PROPERTY, VEHICLE, ELECTRONIC, LUXURY_GOODS)
+- purchaseDate: DateTime
+- purchasePrice: Decimal @db.Decimal(15, 2) // NO FLOAT/DOUBLE
+- warrantyEndDate: DateTime?
+- totalMaintenanceCost: Decimal @default(0.00) @db.Decimal(15, 2) // Terakumulasi otomatis dari task COMPLETED
+- taxationDeadline: DateTime?
+
+4. Model MaintenanceTask (Menu 2 & 4):
+- id: String @id @default(uuid())
+- tenantId: String
+- assetId: String
+- staffId: String
+- status: TaskStatus @default(ASSIGNED) (Enum: ASSIGNED, IN_PROGRESS, WAITING_APPROVAL, COMPLETED, REJECTED)
+- taskDescription: String @db.Text
+- dueDate: DateTime
+- submittedCost: Decimal @default(0.00) @db.Decimal(15, 2)
+- proofImageUrl: String?
+- vendorName: String?
+
+5. Model Subscription:
+- id: String @id @default(uuid())
+- tenantId: String @unique
+- planType: PlanType @default(BASIC) (Enum: BASIC, SULTAN)
+- isActive: Boolean @default(true)
+
+ATURAN KEAMANAN & I18N:
+- Buat mekanisme utilitas/helper di Next.js API Routes yang otomatis mengekstrak `tenantId` dari JWT Token (untuk Owner/Staff login) atau dari token Magic Link terenkripsi (untuk Staff upload). Setiap query Prisma WAJIB menyertakan klausul `where: { tenantId: currentTenantId }`.
+- Implementasikan sistem login berbasis JWT pada API Route khusus untuk role OWNER via mock OTP/Email (tidak ada registrasi publik).
+- Buat file `i18n.json` atau gunakan React Context sederhana untuk kamus bahasa (ID/EN) global. Semua komponen UI wajib membaca teks dari kamus ini berdasarkan nilai `preferredLanguage` dari user yang aktif. Default ke 'ID'.
