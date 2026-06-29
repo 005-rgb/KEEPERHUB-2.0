@@ -6,7 +6,7 @@ import { useTheme } from "@/lib/theme";
 import { TokenPayload } from "@/lib/auth";
 import {
   LayoutDashboard, Boxes, Wrench, Users, LogOut,
-  Sun, Moon, Globe, Shield, ChevronRight,
+  Sun, Moon, Globe, Shield, ChevronRight, Crown, BarChart3,
 } from "lucide-react";
 import clsx from "clsx";
 
@@ -76,6 +76,28 @@ export default function Sidebar({ session }: { session: TokenPayload }) {
             </Link>
           );
         })}
+
+        {/* Owner-only section */}
+        {session.role === "OWNER" && (
+          <>
+            <div className="pt-4 pb-1">
+              <p className="text-[10px] font-semibold uppercase tracking-widest px-3" style={{ color: "var(--text-muted)" }}>OWNER</p>
+            </div>
+            {[
+              { href: "/owner/dashboard", icon: Crown, label: t("menu_asset_input") },
+              { href: "/owner/dashboard/financial", icon: BarChart3, label: t("menu_financial") },
+            ].map(item => {
+              const isActive = pathname === item.href || pathname.startsWith(item.href + "/");
+              return (
+                <Link key={item.href} href={item.href} className={clsx("nav-item group", isActive && "active")}>
+                  <item.icon className="w-4 h-4 flex-shrink-0" />
+                  <span className="flex-1 text-sm">{item.label}</span>
+                  {isActive && <ChevronRight className="w-3 h-3 opacity-50" />}
+                </Link>
+              );
+            })}
+          </>
+        )}
       </nav>
 
       {/* Bottom */}
