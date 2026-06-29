@@ -1,0 +1,52 @@
+Buatkan proyek baru menggunakan Python FastAPI dan PostgreSQL (SQLAlchemy). Terapkan arsitektur Multi-Tenant berbasis "Shared Database, Shared Schema" menggunakan kolom `tenant_id` di setiap tabel untuk kebutuhan deployment di cPanel Shared Hosting. 
+
+Patuhi skema database kaku dan aturan validasi berikut tanpa modifikasi improvisasi:
+
+1. Tabel tenants:
+- id: UUID (Primary Key, Default uuid_generate_v4())
+- company_name: VARCHAR(100)
+- is_active: BOOLEAN (Default True)
+
+2. Tabel users (RBAC, i18n, & Tenant-Bound):
+- id: UUID (Primary Key)
+- tenant_id: UUID (FK ke tenants.id, NOT NULL)
+- role: ENUM('OWNER', 'STAFF') (NOT NULL)
+- full_name: VARCHAR(100) (NOT NULL)
+- phone_number: VARCHAR(20) (Format E.164, NOT NULL)
+- owner_id: UUID (FK ke users.id, Nullable - diisi jika role adalah STAFF)
+- preferred_language: ENUM('ID', 'EN') (Default 'ID')
+
+3. Tabel assets (Menu 1 & 3):
+- id: UUID (Primary Key)
+- tenant_id: UUID (FK ke tenants.id, NOT NULL)
+- owner_id: UUID (FK ke users.id, NOT NULL)
+- asset_name: VARCHAR(150) (NOT NULL)
+- category: ENUM('PROPERTY', 'VEHICLE', 'ELECTRONIC', 'LUXURY_GOODS') (NOT NULL)
+- purchase_date: DATE (NOT NULL)
+- purchase_price: DECIMAL(15,2) (NOT NULL, NO FLOAT/DOUBLE)
+- warranty_end_date: DATE (Nullable)
+- total_maintenance_cost: DECIMAL(15,2) (Default 0.00, terakumulasi otomatis dari task COMPLETED)
+- taxation_deadline: DATE (Nullable)
+
+4. Tabel maintenance_tasks (Menu 2 & 4):
+- id: UUID (Primary Key)
+- tenant_id: UUID (FK ke tenants.id, NOT NULL)
+- asset_id: UUID (FK ke assets.id, NOT NULL)
+- staff_id: UUID (FK ke users.id, NOT NULL)
+- status: ENUM('ASSIGNED', 'IN_PROGRESS', 'WAITING_APPROVAL', 'COMPLETED', 'REJECTED') (Default 'ASSIGNED')
+- task_description: TEXT (NOT NULL)
+- due_date: DATE (NOT NULL)
+- submitted_cost: DECIMAL(15,2) (Default 0.00)
+- proof_image_url: TEXT (Nullable)
+- vendor_name: VARCHAR(100) (Nullable)
+
+5. Tabel subscriptions:
+- id: UUID (Primary Key)
+- tenant_id: UUID (FK ke tenants.id, Unique, NOT NULL)
+- plan_type: ENUM('BASIC', 'SULTAN') (Default 'BASIC')
+- is_active: BOOLEAN (Default True)
+
+ATURAN KEAMANAN & I18N:
+- Buat FastAPI Dependencies/Middleware yang otomatis mengekstrak `tenant_id` dari JWT Token (untuk aplikasi utama) atau dari parameter enkripsi Magic Link (untuk Staf). Setiap query database WAJIB menyertakan filter `.filter(tenant_id=current_tenant_id)`.
+- Implementasikan login JWT untuk role OWNER saja (via mock OTP/Email, tidak ada registrasi publik). Staff dimasukkan manual oleh Owner via database/backend.
+- Buat file konfigurasi `i18n.json` di Frontend berisi kamus bahasa (ID/EN) untuk seluruh label teks di layar. UI akan memuat teks berdasarkan kolom `preferred_language` dari user yang login. Default ke 'ID'.
