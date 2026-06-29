@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { extractTenantFromRequest, requireOwner, requireAuth } from "@/lib/tenant";
 
@@ -48,8 +49,17 @@ export async function POST(req: NextRequest) {
     if (!VALID_CATEGORIES.includes(body.category)) {
       return NextResponse.json({ error: "Kategori tidak valid" }, { status: 422 });
     }
-    const price = Number(body.purchasePrice);
-    if (isNaN(price) || price <= 0) {
+    const priceStr = String(body.purchasePrice ?? "").trim();
+    if (!/^\d+(\.\d+)?$/.test(priceStr)) {
+      return NextResponse.json({ error: "Harga beli harus berupa angka valid" }, { status: 422 });
+    }
+    let purchaseDecimal: Prisma.Decimal;
+    try {
+      purchaseDecimal = new Prisma.Decimal(priceStr);
+    } catch {
+      return NextResponse.json({ error: "Harga beli tidak valid" }, { status: 422 });
+    }
+    if (purchaseDecimal.lte(0)) {
       return NextResponse.json({ error: "Harga beli harus lebih dari 0" }, { status: 422 });
     }
     if (!body.purchaseDate) {
@@ -63,7 +73,7 @@ export async function POST(req: NextRequest) {
         assetName: body.assetName.trim(),
         category: body.category,
         purchaseDate: new Date(body.purchaseDate),
-        purchasePrice: price,
+        purchasePrice: purchaseDecimal,
         warrantyEndDate: body.warrantyEndDate ? new Date(body.warrantyEndDate) : null,
         taxationDeadline: body.taxationDeadline ? new Date(body.taxationDeadline) : null,
       },

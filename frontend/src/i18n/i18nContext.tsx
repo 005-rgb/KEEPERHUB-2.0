@@ -28,6 +28,11 @@ export function I18nProvider({ children, initialLang = "ID" }: { children: React
   const setLang = (l: Lang) => {
     setLangState(l);
     localStorage.setItem("kh_lang", l);
+    fetch("/api/user/language", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ language: l }),
+    }).catch(() => {});
   };
 
   const t = (key: keyof Dict): string => {
